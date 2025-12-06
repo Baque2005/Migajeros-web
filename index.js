@@ -85,7 +85,8 @@ app.post('/api/publicaciones', async (req, res) => {
     ciudad,
     historia,
     impacto,
-    imagenes // <-- nuevo campo
+    imagenes,
+    redSocial // <-- nuevo campo
   } = req.body;
 
   // Forzar que impacto sea número y nunca undefined
@@ -94,7 +95,7 @@ app.post('/api/publicaciones', async (req, res) => {
 
   const { data, error } = await supabase
     .from('publicaciones')
-    .insert([{ titulo, nombre, apellido, edad, lugar, pais, ciudad, historia, impacto: impactoFinal, imagenes }]);
+    .insert([{ titulo, nombre, apellido, edad, lugar, pais, ciudad, historia, impacto: impactoFinal, imagenes, redSocial }]);
 
   if (error) {
     console.error('Error al guardar en Supabase:', error);
