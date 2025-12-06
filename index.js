@@ -1,3 +1,33 @@
+// Endpoint para guardar un comentario
+app.post('/api/comentarios', async (req, res) => {
+  const { historiaId, texto } = req.body;
+  if (!historiaId || !texto || texto.trim().length < 2) {
+    return res.status(400).json({ error: 'Datos insuficientes' });
+  }
+  const { data, error } = await supabase
+    .from('comentarios')
+    .insert([{ historiaId, texto, fecha: new Date().toISOString() }]);
+  if (error) {
+    console.error('Error al guardar comentario:', error);
+    return res.status(500).json({ error: error.message });
+  }
+  res.status(201).json({ mensaje: 'Comentario guardado', data });
+});
+
+// Endpoint para obtener comentarios de una historia
+app.get('/api/comentarios/:historiaId', async (req, res) => {
+  const { historiaId } = req.params;
+  const { data, error } = await supabase
+    .from('comentarios')
+    .select('*')
+    .eq('historiaId', historiaId)
+    .order('fecha', { ascending: false });
+  if (error) {
+    console.error('Error al obtener comentarios:', error);
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
+});
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
