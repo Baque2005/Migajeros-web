@@ -34,8 +34,6 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
 const upload = multer();
-
-
 const path = require('path');
 const app = express();
 app.use(cors());
@@ -103,35 +101,35 @@ app.delete('/api/publicaciones/:id', async (req, res) => {
   res.json({ mensaje: 'Publicación eliminada', data });
 });
 
-// Endpoint para guardar una publicación
-app.post('/api/publicaciones', async (req, res) => {
-  const {
-    titulo,
-    nombre,
-    apellido,
-    edad,
-    lugar,
-    pais,
-    ciudad,
-    historia,
-    impacto,
-    imagenes,
-    redSocial // <-- nuevo campo
-  } = req.body;
-
-  // Forzar que impacto sea número y nunca undefined
-  const impactoFinal = impacto !== undefined && impacto !== null ? Number(impacto) : 0;
-  console.log('impacto recibido:', impacto, 'impactoFinal:', impactoFinal);
-
+// Endpoint para guardar un comentario
+app.post('/api/comentarios', async (req, res) => {
+  const { historiaId, texto } = req.body;
+  if (!historiaId || !texto || texto.trim().length < 2) {
+    return res.status(400).json({ error: 'Datos insuficientes' });
+  }
   const { data, error } = await supabase
-    .from('publicaciones')
-    .insert([{ titulo, nombre, apellido, edad, lugar, pais, ciudad, historia, impacto: impactoFinal, imagenes, redSocial }]);
-
+    .from('comentarios')
+    .insert([{ historiaId, texto, fecha: new Date().toISOString() }]);
   if (error) {
-    console.error('Error al guardar en Supabase:', error);
+    console.error('Error al guardar comentario:', error);
     return res.status(500).json({ error: error.message });
   }
-  res.status(201).json({ mensaje: 'Publicación guardada', data });
+  res.status(201).json({ mensaje: 'Comentario guardado', data });
+});
+
+// Endpoint para obtener comentarios de una historia
+app.get('/api/comentarios/:historiaId', async (req, res) => {
+  const { historiaId } = req.params;
+  const { data, error } = await supabase
+    .from('comentarios')
+    .select('*')
+    .eq('historiaId', historiaId)
+    .order('fecha', { ascending: false });
+  if (error) {
+    console.error('Error al obtener comentarios:', error);
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
 });
 
 // Endpoint para obtener todas las publicaciones
