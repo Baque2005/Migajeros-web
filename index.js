@@ -135,6 +135,21 @@ app.get('/api/comentarios/:historiaId', async (req, res) => {
 });
 
 // Endpoint para obtener todas las publicaciones
+// Endpoint para crear una nueva publicación
+app.post('/api/publicaciones', async (req, res) => {
+  const { titulo, nombre, apellido, edad, lugar, pais, ciudad, historia, impacto, imagenes, redSocial } = req.body;
+  if (!titulo || !nombre || !apellido || !edad || !pais || !ciudad || !historia) {
+    return res.status(400).json({ error: 'Datos insuficientes' });
+  }
+  const { data, error } = await supabase
+    .from('publicaciones')
+    .insert([{ titulo, nombre, apellido, edad, lugar, pais, ciudad, historia, impacto, imagenes, redSocial }]);
+  if (error) {
+    console.error('Error al guardar publicación:', error);
+    return res.status(500).json({ error: error.message });
+  }
+  res.status(201).json({ mensaje: 'Publicación guardada', data });
+});
 app.get('/api/publicaciones', async (req, res) => {
   const { data, error } = await supabase
     .from('publicaciones')
