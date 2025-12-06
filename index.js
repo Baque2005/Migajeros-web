@@ -1,4 +1,15 @@
 // ...existing code...
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
+const multer = require('multer');
+const upload = multer();
+const path = require('path');
+const app = express();
+app.use(cors());
+app.use(express.json());
+
 // Endpoint para guardar un comentario
 app.post('/api/comentarios', async (req, res) => {
   const { historiaId, texto } = req.body;
@@ -29,16 +40,6 @@ app.get('/api/comentarios/:historiaId', async (req, res) => {
   }
   res.json(data);
 });
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-const multer = require('multer');
-const upload = multer();
-const path = require('path');
-const app = express();
-app.use(cors());
-app.use(express.json());
 
 // Servir archivos estáticos del frontend
 const buildPath = path.join(__dirname, 'build');
