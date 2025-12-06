@@ -1,17 +1,31 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
 const upload = multer();
 
+
+const path = require('path');
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configuración de Supabase
-const supabaseUrl = 'https://zvbvlsxxyihaxecmdtss.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2YnZsc3h4eWloYXhlY21kdHNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTU5NzUsImV4cCI6MjA4MDQ3MTk3NX0.wqKmDQ3B4GfRsyhjiEu9vOyqdkAJglAa30biEhV-lgg';
+// Servir archivos estáticos del frontend
+const buildPath = path.join(__dirname, 'build');
+app.use(express.static(buildPath));
+
+// Redirigir cualquier ruta que no sea API al index.html del frontend
+app.get(/^\/(?!api).*/, (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+// Configuración de Supabase usando variables de entorno
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseBucket = process.env.SUPABASE_BUCKET;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
 // Endpoint para subir imágenes a Supabase Storage
 app.post('/api/upload-imagenes', upload.array('imagenes'), async (req, res) => {
   const files = req.files;
@@ -23,7 +37,7 @@ app.post('/api/upload-imagenes', upload.array('imagenes'), async (req, res) => {
   for (const file of files) {
     const nombreArchivo = `${Date.now()}_${file.originalname}`;
     try {
-      const { data, error } = await supabase.storage.from('pruebas-infidelidad').upload(nombreArchivo, file.buffer, {
+      const { data, error } = await supabase.storage.from(supabaseBucket).upload(nombreArchivo, file.buffer, {
         contentType: file.mimetype,
         upsert: false
       });
@@ -32,7 +46,7 @@ app.post('/api/upload-imagenes', upload.array('imagenes'), async (req, res) => {
         continue;
       }
       // Obtener URL pública
-      const url = `${supabaseUrl}/storage/v1/object/public/pruebas-infidelidad/${nombreArchivo}`;
+      const url = `${supabaseUrl}/storage/v1/object/public/${supabaseBucket}/${nombreArchivo}`;
       urls.push(url);
       console.log('Imagen subida correctamente:', url);
     } catch (err) {
