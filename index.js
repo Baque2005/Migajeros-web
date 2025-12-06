@@ -1,3 +1,4 @@
+// ...existing code...
 // Endpoint para guardar un comentario
 app.post('/api/comentarios', async (req, res) => {
   const { historiaId, texto } = req.body;
