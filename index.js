@@ -63,61 +63,21 @@ app.delete('/api/publicaciones/:id', async (req, res) => {
   res.json({ mensaje: 'Publicación eliminada', data });
 });
 
-// Endpoint para responder a un comentario
-app.post('/api/comentarios/responder', async (req, res) => {
-  const { comentarioId, texto } = req.body;
-  if (!comentarioId || !texto || texto.trim().length < 2) {
-    return res.status(400).json({ error: 'Datos insuficientes' });
-  }
-  // Obtener el comentario actual
-  const { data: comentarioActual, error: errorGet } = await supabase
-    .from('comentarios')
-    .select('respuestas')
-    .eq('id', comentarioId)
-    .single();
-  if (errorGet) {
-    console.error('Error al obtener comentario:', errorGet);
-    return res.status(500).json({ error: errorGet.message });
-  }
-  // Preparar nueva respuesta
-  const nuevaRespuesta = {
-    texto,
-    fecha: new Date().toISOString()
-  };
-  // Unir con respuestas existentes
-  let respuestasActuales = [];
-  if (comentarioActual && Array.isArray(comentarioActual.respuestas)) {
-    respuestasActuales = comentarioActual.respuestas;
-  } else if (comentarioActual && typeof comentarioActual.respuestas === 'string') {
-    try {
-      respuestasActuales = JSON.parse(comentarioActual.respuestas);
-      if (!Array.isArray(respuestasActuales)) respuestasActuales = [];
-    } catch {
-      respuestasActuales = [];
-    }
-  }
-  respuestasActuales.push(nuevaRespuesta);
-  // Actualizar el comentario con el nuevo array de respuestas
-  const { error: errorUpdate } = await supabase
-    .from('comentarios')
-    .update({ respuestas: respuestasActuales })
-    .eq('id', comentarioId);
-  if (errorUpdate) {
-    console.error('Error al guardar respuesta:', errorUpdate);
-    return res.status(500).json({ error: errorUpdate.message });
-  }
-  res.json({ mensaje: 'Respuesta guardada' });
-});
-
-// Endpoint para guardar un comentario
+// Endpoint para guardar un comentario (principal o respuesta)
 app.post('/api/comentarios', async (req, res) => {
-  const { historiaId, texto } = req.body;
+  const { historiaId, texto, respuestaA } = req.body;
   if (!historiaId || !texto || texto.trim().length < 2) {
     return res.status(400).json({ error: 'Datos insuficientes' });
   }
+  const nuevoComentario = {
+    historiaId,
+    texto,
+    fecha: new Date().toISOString(),
+    respuestaA: respuestaA || null
+  };
   const { data, error } = await supabase
     .from('comentarios')
-    .insert([{ historiaId, texto, fecha: new Date().toISOString(), respuestas: [] }]);
+    .insert([nuevoComentario]);
   if (error) {
     console.error('Error al guardar comentario:', error);
     return res.status(500).json({ error: error.message });
@@ -137,19 +97,9 @@ app.get('/api/comentarios/:historiaId', async (req, res) => {
     console.error('Error al obtener comentarios:', error);
     return res.status(500).json({ error: error.message });
   }
-  // Asegura que respuestas siempre sea array
-  const comentarios = Array.isArray(data) ? data.map(c => ({
-    ...c,
-    respuestas: Array.isArray(c.respuestas)
-      ? c.respuestas
-      : (typeof c.respuestas === 'string' && c.respuestas.startsWith('[')
-          ? (() => { try { return JSON.parse(c.respuestas); } catch { return []; } })()
-          : [])
-  })) : [];
-  res.json(comentarios);
+  res.json(data);
 });
 
-// Endpoint para obtener todas las publicaciones
 // Endpoint para crear una nueva publicación
 app.post('/api/publicaciones', async (req, res) => {
   const { titulo, nombre, apellido, edad, lugar, pais, ciudad, historia, impacto, imagenes, redSocial } = req.body;
