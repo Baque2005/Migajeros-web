@@ -10,46 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Endpoint para guardar un comentario
-app.post('/api/comentarios', async (req, res) => {
-  const { historiaId, texto } = req.body;
-  if (!historiaId || !texto || texto.trim().length < 2) {
-    return res.status(400).json({ error: 'Datos insuficientes' });
-  }
-  const { data, error } = await supabase
-    .from('comentarios')
-    .insert([{ historiaId, texto, fecha: new Date().toISOString() }]);
-  if (error) {
-    console.error('Error al guardar comentario:', error);
-    return res.status(500).json({ error: error.message });
-  }
-  res.status(201).json({ mensaje: 'Comentario guardado', data });
-});
-
-// Endpoint para obtener comentarios de una historia
-app.get('/api/comentarios/:historiaId', async (req, res) => {
-  const { historiaId } = req.params;
-  const { data, error } = await supabase
-    .from('comentarios')
-    .select('*')
-    .eq('historiaId', historiaId)
-    .order('fecha', { ascending: false });
-  if (error) {
-    console.error('Error al obtener comentarios:', error);
-    return res.status(500).json({ error: error.message });
-  }
-  res.json(data);
-});
-
-// Servir archivos estáticos del frontend
-const buildPath = path.join(__dirname, 'build');
-app.use(express.static(buildPath));
-
-// Redirigir cualquier ruta que no sea API al index.html del frontend
-app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
-
 // Configuración de Supabase usando variables de entorno
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -103,6 +63,52 @@ app.delete('/api/publicaciones/:id', async (req, res) => {
   res.json({ mensaje: 'Publicación eliminada', data });
 });
 
+// Endpoint para responder a un comentario
+app.post('/api/comentarios/responder', async (req, res) => {
+  const { comentarioId, texto } = req.body;
+  if (!comentarioId || !texto || texto.trim().length < 2) {
+    return res.status(400).json({ error: 'Datos insuficientes' });
+  }
+  // Obtener el comentario actual
+  const { data: comentarioActual, error: errorGet } = await supabase
+    .from('comentarios')
+    .select('respuestas')
+    .eq('id', comentarioId)
+    .single();
+  if (errorGet) {
+    console.error('Error al obtener comentario:', errorGet);
+    return res.status(500).json({ error: errorGet.message });
+  }
+  // Preparar nueva respuesta
+  const nuevaRespuesta = {
+    texto,
+    fecha: new Date().toISOString()
+  };
+  // Unir con respuestas existentes
+  let respuestasActuales = [];
+  if (comentarioActual && Array.isArray(comentarioActual.respuestas)) {
+    respuestasActuales = comentarioActual.respuestas;
+  } else if (comentarioActual && typeof comentarioActual.respuestas === 'string') {
+    try {
+      respuestasActuales = JSON.parse(comentarioActual.respuestas);
+      if (!Array.isArray(respuestasActuales)) respuestasActuales = [];
+    } catch {
+      respuestasActuales = [];
+    }
+  }
+  respuestasActuales.push(nuevaRespuesta);
+  // Actualizar el comentario con el nuevo array de respuestas
+  const { error: errorUpdate } = await supabase
+    .from('comentarios')
+    .update({ respuestas: respuestasActuales })
+    .eq('id', comentarioId);
+  if (errorUpdate) {
+    console.error('Error al guardar respuesta:', errorUpdate);
+    return res.status(500).json({ error: errorUpdate.message });
+  }
+  res.json({ mensaje: 'Respuesta guardada' });
+});
+
 // Endpoint para guardar un comentario
 app.post('/api/comentarios', async (req, res) => {
   const { historiaId, texto } = req.body;
@@ -111,7 +117,7 @@ app.post('/api/comentarios', async (req, res) => {
   }
   const { data, error } = await supabase
     .from('comentarios')
-    .insert([{ historiaId, texto, fecha: new Date().toISOString() }]);
+    .insert([{ historiaId, texto, fecha: new Date().toISOString(), respuestas: [] }]);
   if (error) {
     console.error('Error al guardar comentario:', error);
     return res.status(500).json({ error: error.message });
@@ -131,7 +137,16 @@ app.get('/api/comentarios/:historiaId', async (req, res) => {
     console.error('Error al obtener comentarios:', error);
     return res.status(500).json({ error: error.message });
   }
-  res.json(data);
+  // Asegura que respuestas siempre sea array
+  const comentarios = Array.isArray(data) ? data.map(c => ({
+    ...c,
+    respuestas: Array.isArray(c.respuestas)
+      ? c.respuestas
+      : (typeof c.respuestas === 'string' && c.respuestas.startsWith('[')
+          ? (() => { try { return JSON.parse(c.respuestas); } catch { return []; } })()
+          : [])
+  })) : [];
+  res.json(comentarios);
 });
 
 // Endpoint para obtener todas las publicaciones
@@ -161,6 +176,15 @@ app.get('/api/publicaciones', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
   res.json(data);
+});
+
+// Servir archivos estáticos del frontend
+const buildPath = path.join(__dirname, 'build');
+app.use(express.static(buildPath));
+
+// Redirigir cualquier ruta que no sea API al index.html del frontend
+app.get(/^\/(?!api).*/, (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
 });
 
 // Puerto
